@@ -7,12 +7,10 @@ FILE_DATI = "estrazioni_superenalotto.json"
 
 def scarica_estrazioni():
     """Scarica le estrazioni in tempo reale usando un'API web standard che supera i filtri DNS"""
-    # Usiamo un endpoint alternativo ad alta disponibilità che simula una normale navigazione web
     url = "https://allorigins.win"
     
     try:
         print("Sincronizzazione automatica con l'archivio storico in corso...")
-        # Configura i parametri di navigazione (User-Agent) per apparire come un comune browser (Chrome)
         richiesta = urllib.request.Request(
             url, 
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
@@ -22,7 +20,6 @@ def scarica_estrazioni():
             codice_grezzo = response.read().decode('utf-8')
             dati = json.loads(codice_grezzo)
             
-            # Salva la cache locale sul PC dell'utente per l'utilizzo offline futuro
             with open(FILE_DATI, "w", encoding="utf-8") as f:
                 json.dump(dati, f)
             print("[OK] Connessione riuscita! Archivio aggiornato all'ultimo concorso.")
@@ -42,7 +39,6 @@ def elabora_statistiche(estrazioni):
     conteggio_100 = {i: 0 for i in range(1, 91)}
     ultimo_visto = {i: 0 for i in range(1, 91)}
     
-    # Prendi le ultime 100 estrazioni reali
     ultime_100 = estrazioni[:100]
     for conc in ultime_100:
         sestina = conc.get("combinazione", conc.get("sestina", []))[:6]
@@ -56,7 +52,6 @@ def elabora_statistiche(estrazioni):
             if 1 <= num <= 90 and ultimo_visto[num] == 0:
                 ultimo_visto[num] = indice + 1
 
-    # Applica i filtri richiesti dal sistema
     esclusi = [n for n, v in conteggio_100.items() if v >= 2]
     ritardatari = sorted(ultimo_visto.keys(), key=lambda x: ultimo_visto[x], reverse=True)[:20]
     validi = [n for n in range(1, 91) if n not in esclusi]
@@ -120,7 +115,7 @@ def main():
     
     blocchi = [(3, 1, 60), (3, 20, 70), (2, 30, 90)]
     
-    for qta, s_min, s_max in blocks := blocchi:
+    for qta, s_min, s_max in blocchi:
         for _ in range(qta):
             sestina = genera_sestina(validi, ritardatari, s_min, s_max, numeri_usati_totali)
             sestine_finali.append((s_min, s_max, sestina))
