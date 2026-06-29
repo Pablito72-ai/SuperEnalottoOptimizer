@@ -9,7 +9,7 @@ FILE_LOCAL = "estrazioni_superenalotto.json"
 
 def ottieni_estrazioni_reali():
     """Chiede al browser di sistema di scaricare il file aggiornato, superando ogni firewall di Windows"""
-    url_archivio = "https://githubusercontent.com"
+    url_archivio = "https://githubusercontent.com/orand/superenalotto-data/main/data/superenalotto.json"
     
     print("Apertura del canale web sicuro tramite il tuo browser di sistema...")
     # Apre il browser sul link ufficiale. Il browser scaricherà il file JSON aggiornato al secondo
