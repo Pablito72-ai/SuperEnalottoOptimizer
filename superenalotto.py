@@ -1,32 +1,43 @@
+import os
 import random
+import urllib.request
+import json
+import ssl
 
-def ottieni_archivio_incorporato():
-    """Archivio storico recente integrato direttamente nel codice per il funzionamento 100% offline"""
-    # Struttura dati fissa: contiene le ultime estrazioni storiche necessarie ai calcoli dei filtri
-    return [
-        {"combinazione": [2, 14, 33, 45, 71, 88]}, {"combinazione": [7, 18, 24, 49, 62, 81]},
-        {"combinazione": [11, 22, 38, 52, 75, 84]}, {"combinazione": [4, 15, 29, 53, 60, 86]},
-        {"combinazione": [1, 5, 19, 36, 47, 90]}, {"combinazione": [3, 16, 27, 42, 54, 57]},
-        {"combinazione": [20, 31, 43, 56, 62, 69]}, {"combinazione": [21, 34, 46, 58, 61, 67]},
-        {"combinazione": [23, 35, 48, 50, 65, 70]}, {"combinazione": [32, 44, 58, 71, 84, 88]},
-        {"combinazione": [37, 49, 62, 75, 81, 86]}, {"combinazione": [5, 12, 28, 41, 63, 79]},
-        {"combinazione": [9, 17, 30, 55, 66, 82]}, {"combinazione": [13, 25, 39, 47, 68, 89]},
-        {"combinazione": [6, 26, 40, 51, 73, 85]}, {"combinazione": [8, 19, 33, 59, 74, 87]},
-        {"combinazione": [10, 21, 35, 64, 77, 83]}, {"combinazione": [15, 22, 45, 60, 72, 90]},
-        {"combinazione": [2, 11, 31, 52, 61, 80]}, {"combinazione": [4, 18, 38, 53, 67, 81]},
-        {"combinazione": [7, 14, 24, 49, 75, 84]}, {"combinations": [3, 27, 36, 56, 70, 86]},
-        {"combinazione": [1, 16, 29, 42, 62, 88]}, {"combinazione": [23, 34, 46, 58, 69, 85]},
-        {"combinazione": [20, 32, 44, 50, 65, 68]}, {"combinazione": [9, 13, 25, 47, 54, 77]},
-        {"combinazione": [6, 17, 39, 51, 63, 79]}, {"combinazione": [8, 26, 40, 55, 66, 82]},
-        {"combinazione": [10, 12, 28, 41, 73, 89]}, {"combinazione": [5, 15, 30, 59, 74, 87]}
-    ]
+FILE_DATI = "estrazioni_superenalotto.json"
+
+def scarica_estrazioni():
+    """Scarica le ultime estrazioni in tempo reale bypassando i blocchi SSL di Windows"""
+    url = "https://githubusercontent.com"
+    
+    # Crea un contesto SSL che ignora le restrizioni locali di Windows sul certificato
+    contesto_ssl = ssl._create_unverified_context()
+    
+    try:
+        print("Connessione ai server storici... Aggiornamento estrazioni in corso...")
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, context=contesto_ssl, timeout=10) as response:
+            dati = json.loads(response.read().decode())
+            # Salva una copia locale: se domani sarai senza internet, userà questa
+            with open(FILE_DATI, "w", encoding="utf-8") as f:
+                json.dump(dati, f)
+            print("[OK] Archivio aggiornato con successo all'ultimo concorso!")
+            return dati
+    except Exception as e:
+        print(f"\n[AVVISO] Impossibile connettersi a internet: {e}")
+        print("Il programma utilizzerà l'ultimo archivio salvato localmente.")
+        if os.path.exists(FILE_DATI):
+            with open(FILE_DATI, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return None
 
 def elabora_statistiche(estrazioni):
-    """Esegue lo screening statistico escludendo i frequenti ed estraendo i ritardatari prioritari"""
     conteggio_100 = {i: 0 for i in range(1, 91)}
     ultimo_visto = {i: 0 for i in range(1, 91)}
     
-    for conc in estrazioni:
+    # Analizza esattamente le ultime 100 estrazioni reali presenti nel feed
+    ultime_100 = estrazioni[:100]
+    for conc in ultime_100:
         sestina = conc.get("combinazione", conc.get("sestina", []))[:6]
         for num in sestina:
             if 1 <= num <= 90:
@@ -38,12 +49,9 @@ def elabora_statistiche(estrazioni):
             if 1 <= num <= 90 and ultimo_visto[num] == 0:
                 ultimo_visto[num] = indice + 1
 
-    # Filtro: rimuove i numeri estratti almeno 2 volte nel periodo
+    # Applica i tuoi filtri personalizzati
     esclusi = [n for n, v in conteggio_100.items() if v >= 2]
-    
-    # 20 Numeri più ritardatari inseriti come opzione vincolante
     ritardatari = sorted(ultimo_visto.keys(), key=lambda x: ultimo_visto[x], reverse=True)[:20]
-    
     validi = [n for n in range(1, 91) if n not in esclusi]
     return validi, ritardatari
 
@@ -79,11 +87,9 @@ def genera_sestina(numeri_validi, ritardatari, s_min, s_max, gia_usati):
             
         sestina.sort()
         
-        # Filtro Somma (150 - 400)
         if not (150 <= sum(sestina) <= 400):
             continue
             
-        # Filtro Distanza geometrica media (Tolleranza 13-17 per adattarsi ai range ridotti)
         distanze = [sestina[i+1] - sestina[i] for i in range(len(sestina)-1)]
         distanza_media = sum(distanze) / len(distanze)
         if not (13 <= distanza_media <= 17):
@@ -94,10 +100,15 @@ def genera_sestina(numeri_validi, ritardatari, s_min, s_max, gia_usati):
 
 def main():
     print("="*60)
-    print("      ELABORATORE ESTRATTORE SUPERENALOTTO 100% OFFLINE")
+    print("      ELABORATORE SUPERENALOTTO CON AGGIORNAMENTO LIVE")
     print("="*60)
     
-    dati = ottieni_archivio_incorporato()
+    dati = scarica_estrazioni()
+    if not dati:
+        print("\n[ERRORE DI AVVIO] File dati non presente sul PC.")
+        print("È necessaria una connessione internet solo per il primissimo avvio.")
+        input("\nPremi INVIO per uscire..."); return
+
     validi, ritardatari = elabora_statistiche(dati)
     numeri_usati_totali = set()
     sestine_finali = []
@@ -110,13 +121,13 @@ def main():
             sestine_finali.append((s_min, s_max, sestina))
             numeri_usati_totali.update(sestina)
 
-    print("\nEcco le 8 sestine generate in modalità offline nativa:\n")
+    print("\nEcco le 8 sestine elaborate sui dati reali più recenti:\n")
     for i, (s_min, s_max, sst) in enumerate(sestine_finali, 1):
-        str_sestina = " ".join(f"{n:02d}" for n in sst)
-        print(f"Sestina {i} (Range {s_min:02d}-{s_max:02d}): [ {str_sestina} ]  (Somma: {sum(sst)})")
+        str_sestina = " ".join(f"{n:02d}" f" " for n in sst)
+        print(f"Sestina {i} (Range {s_min:02d}-{s_max:02d}): [ {str_sestina.strip()} ]  (Somma: {sum(sst)})")
         
     print("\n" + "="*60)
-    input("Elaborazione offline completata! Premi INVIO per chiudere...");
+    input("Elaborazione completata! Premi INVIO per chiudere il programma...");
 
 if __name__ == "__main__":
     main()
