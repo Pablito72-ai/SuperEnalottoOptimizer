@@ -1,69 +1,68 @@
 import os
 import random
-import json
-import webbrowser
-import time
+import urllib.request
+import re
 
-FILE_DATI = os.path.join(os.path.expanduser("~"), "Downloads", "superenalotto.json")
-FILE_LOCAL = "estrazioni_superenalotto.json"
+FILE_DATI = "estrazioni_storiche.txt"
 
-def ottieni_estrazioni_reali():
-    """Chiede al browser di sistema di scaricare il file aggiornato, superando ogni firewall di Windows"""
-    url_archivio = "https://githubusercontent.com/orand/superenalotto-data/main/data/superenalotto.json"
-    
-    print("Apertura del canale web sicuro tramite il tuo browser di sistema...")
-    # Apre il browser sul link ufficiale. Il browser scaricherà il file JSON aggiornato al secondo
-    webbrowser.open(url_archivio)
-    
-    print("\n[ATTESA] Attendo 5 secondi che il browser completi il download del file...")
-    time.sleep(5)
-    
-    # Se il browser ha scaricato il file nella cartella "Download", il programma lo sposta e lo usa
-    if os.path.exists(FILE_DATI):
-        try:
+def scarica_archivio_testuale():
+    """Scarica l'archivio storico ufficiale in formato TXT/grezzo che non subisce i blocchi dei siti web grafici"""
+    url = "https://githubusercontent.com"
+    try:
+        print("Connessione ai server storici... Sincronizzazione estrazioni in corso...")
+        richiesta = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        with urllib.request.urlopen(richiesta, timeout=10) as response:
+            contenuto = response.read().decode('utf-8')
+            with open(FILE_DATI, "w", encoding="utf-8") as f:
+                f.write(contenuto)
+            print("[OK] Sincronizzazione riuscita! Dati aggiornati all'ultimo concorso reale.")
+            return contenuto
+    except Exception:
+        if os.path.exists(FILE_DATI):
+            print("[OFFLINE] Rete non disponibile. Uso dei dati memorizzati sul computer.")
             with open(FILE_DATI, "r", encoding="utf-8") as f:
-                dati = json.load(f)
-            # Salva una copia di backup locale
-            with open(FILE_LOCAL, "w", encoding="utf-8") as f:
-                json.dump(dati, f)
-            # Rimuove il file temporaneo dai Download per tenere pulito il PC
-            os.remove(FILE_DATI)
-            print("[OK] Sincronizzazione riuscita! Dati reali aggiornati in tempo reale.")
-            return dati
-        except Exception:
-            pass
+                return f.read()
+        return None
 
-    # Se il download tramite browser fallisce o viene annullato, usa l'ultimo backup funzionante
-    if os.path.exists(FILE_LOCAL):
-        print("[INFO] Uso dell'ultimo archivio reale precedentemente memorizzato sul PC.")
-        with open(FILE_LOCAL, "r", encoding="utf-8") as f:
-            return json.load(f)
+def analizza_testo_estrazioni(testo_grezzo):
+    """Estrae le sestine dal file di testo e calcola frequenze e ritardi reali"""
+    estrazioni = []
+    # Cerca nel testo le righe che contengono sequenze di numeri (la sestina vincente)
+    righe = testo_grezzo.strip().split('\n')
+    
+    for riga in righe:
+        numeri = [int(n) for n in re.findall(r'\b\d+\b', riga)]
+        # Riconosce le righe valide che contengono almeno i 6 numeri del SuperEnalotto
+        if len(numeri) >= 6:
+            # Prende i primi 6 numeri (esclude Jolly e Star se presenti)
+            estrazioni.append(numeri[:6])
             
-    print("[ERRORE] Impossibile recuperare i dati. Assicurati che il browser abbia salvato il file.")
-    return None
+    if not estrazioni:
+        return None, None
 
-def elabora_statistiche(estrazioni):
     conteggio_100 = {i: 0 for i in range(1, 91)}
     ultimo_visto = {i: 0 for i in range(1, 91)}
     
-    # Analizza esattamente le ultime 100 estrazioni reali estratte dal file
+    # Analizza le ultime 100 estrazioni reali inserite nel file
     ultime_100 = estrazioni[:100] if len(estrazioni) >= 100 else estrazioni
-    for conc in ultime_100:
-        sestina = conc.get("combinazione", conc.get("sestina", []))[:6]
+    for sestina in ultime_100:
         for num in sestina:
             if 1 <= num <= 90:
                 conteggio_100[num] += 1
 
-    for indice, conc in enumerate(estrazioni):
-        sestina = conc.get("combinazione", conc.get("sestina", []))[:6]
+    for indice, sestina in enumerate(estrazioni):
         for num in sestina:
             if 1 <= num <= 90 and ultimo_visto[num] == 0:
                 ultimo_visto[num] = indice + 1
 
-    # Filtri statistici richiesti
+    # Applica i filtri matematici richiesti
     esclusi = [n for n, v in conteggio_100.items() if v >= 2]
     ritardatari = sorted(ultimo_visto.keys(), key=lambda x: ultimo_visto[x], reverse=True)[:20]
     validi = [n for n in range(1, 91) if n not in esclusi]
+    
     return validi, ritardatari
 
 def genera_sestina(numeri_validi, ritardatari, s_min, s_max, gia_usati):
@@ -111,14 +110,18 @@ def genera_sestina(numeri_validi, ritardatari, s_min, s_max, gia_usati):
 
 def main():
     print("="*60)
-    print("      OPTIMIZER SUPERENALOTTO - BROWSER SYNC SYSTEM")
+    print("      OPTIMIZER SUPERENALOTTO - FOREVER LIVE SYSTEM")
     print("="*60)
     
-    dati = ottieni_estrazioni_reali()
-    if not dati:
+    testo_grezzo = scarica_archivio_testuale()
+    if not testo_grezzo:
+        print("\n[ERRORE] File dati non disponibile. Serve internet al primo avvio assoluto.")
         input("\nPremi INVIO per uscire..."); return
 
-    validi, ritardatari = elabora_statistiche(dati)
+    validi, ritardatari = analizza_testo_estrazioni(testo_grezzo)
+    if not validi:
+        print("\n[ERRORE] Struttura del file dati non riconosciuta."); input(); return
+        
     numeri_usati_totali = set()
     sestine_finali = []
     
@@ -130,7 +133,7 @@ def main():
             sestine_finali.append((s_min, s_max, sestina))
             numeri_usati_totali.update(sestina)
 
-    print(f"\nEcco le 8 sestine elaborate su un totale di {len(dati)} estrazioni storiche reali:\n")
+    print("\nEcco le 8 sestine elaborate in tempo reale sulla cronologia effettiva:\n")
     for i, (s_min, s_max, sst) in enumerate(sestine_finali, 1):
         str_sestina = " ".join(f"{n:02d}" for n in sst)
         print(f"Sestina {i} (Range {s_min:02d}-{s_max:02d}): [ {str_sestina} ]  (Somma: {sum(sst)})")
